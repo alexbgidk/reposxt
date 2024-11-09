@@ -1,0 +1,83 @@
+-- Script: Teleport to Player by Partial Username/DisplayName with Close Button
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ScreenGui, TextBox, CloseButton
+
+-- Function to teleport to player
+local function teleportToPlayer(targetPlayer)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+    else
+        warn("Player not found or invalid.")
+    end
+end
+
+-- Function to create GUI
+local function createGUI()
+    if ScreenGui then 
+        ScreenGui.Enabled = true -- Re-enable if already exists
+        task.wait() -- Small delay to avoid typing "U" into TextBox
+        TextBox:CaptureFocus() -- Automatically focus on TextBox
+        return
+    end 
+
+    ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = game.CoreGui
+
+    -- TextBox for input
+    TextBox = Instance.new("TextBox")
+    TextBox.Size = UDim2.new(0, 200, 0, 50)
+    TextBox.Position = UDim2.new(0.5, -100, 0.5, -25)
+    TextBox.Text = ""
+    TextBox.PlaceholderText = "Enter Part of Username/DisplayName"
+    TextBox.BackgroundTransparency = 0.5
+    TextBox.Parent = ScreenGui
+
+    -- Close Button
+    CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 50, 0, 25)
+    CloseButton.Position = UDim2.new(0.5, 75, 0.5, -65) -- Position it above the TextBox
+    CloseButton.Text = "Close"
+    CloseButton.BackgroundTransparency = 0.3
+    CloseButton.Parent = ScreenGui
+
+    -- Close Button functionality
+    CloseButton.MouseButton1Click:Connect(function()
+        ScreenGui.Enabled = false  -- Hide GUI when Close button is clicked
+    end)
+
+    task.wait() -- Small delay to prevent "U" key from typing in TextBox
+    TextBox:CaptureFocus() -- Automatically focus on TextBox
+
+    -- Detect Enter key for teleporting
+    TextBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            local targetName = TextBox.Text:lower()
+            for _, player in pairs(Players:GetPlayers()) do
+                if player.Name:lower():find(targetName) or player.DisplayName:lower():find(targetName) then
+                    teleportToPlayer(player)
+                    break
+                end
+            end
+            ScreenGui.Enabled = false  -- Disable GUI after teleport
+        end
+    end)
+end
+
+-- Function to disable GUI on respawn
+local function onCharacterAdded()
+    if ScreenGui then
+        ScreenGui.Enabled = false  -- Disable the GUI on respawn
+    end
+end
+
+-- Connect character respawn to GUI disabling
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+
+-- Keybind to show GUI
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.U then
+        createGUI()
+    end
+end)
