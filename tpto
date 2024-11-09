@@ -1,4 +1,4 @@
-- Script: Teleport and Fling to Player by Partial Username/DisplayName with Fling functionality
+-- Script: Teleport and Fling to Player by Partial Username/DisplayName with Fling functionality
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
