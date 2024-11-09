@@ -1,8 +1,8 @@
--- Script: Teleport to Player by Partial Username/DisplayName with Close Button
+- Script: Teleport and Fling to Player by Partial Username/DisplayName with Fling functionality
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local ScreenGui, TextBox, CloseButton
+local ScreenGui, TextBox, TeleportButton, FlingButton, CloseButton
 
 -- Function to teleport to player
 local function teleportToPlayer(targetPlayer)
@@ -10,6 +10,124 @@ local function teleportToPlayer(targetPlayer)
         LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
     else
         warn("Player not found or invalid.")
+    end
+end
+
+-- Fling script function
+local function GetPlayer(Name)
+    Name = Name:lower()
+    for _, x in next, Players:GetPlayers() do
+        if x ~= LocalPlayer then
+            if x.Name:lower():match("^" .. Name) or x.DisplayName:lower():match("^" .. Name) then
+                return x
+            end
+        end
+    end
+    return nil
+end
+
+local function SkidFling(TargetPlayer)
+    local Character = LocalPlayer.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+
+    local TCharacter = TargetPlayer.Character
+    local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and THumanoid.RootPart
+    local THead = TCharacter and TCharacter:FindFirstChild("Head")
+    local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
+    local Handle = Accessory and Accessory:FindFirstChild("Handle")
+
+    if Character and Humanoid and RootPart then
+        if RootPart.Velocity.Magnitude < 50 then
+            getgenv().OldPos = RootPart.CFrame
+        end
+        if THumanoid and THumanoid.Sit then
+            return Message("Error Occurred", "Target is sitting", 5)
+        end
+        if THead then
+            workspace.CurrentCamera.CameraSubject = THead
+        elseif Handle then
+            workspace.CurrentCamera.CameraSubject = Handle
+        else
+            workspace.CurrentCamera.CameraSubject = THumanoid
+        end
+        if not TCharacter:FindFirstChildWhichIsA("BasePart") then
+            return
+        end
+        
+        local function FPos(BasePart, Pos, Ang)
+            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+        end
+        
+        local function SFBasePart(BasePart)
+            local TimeToWait = 2
+            local Time = tick()
+            local Angle = 0
+
+            repeat
+                if RootPart and THumanoid then
+                    if BasePart.Velocity.Magnitude < 50 then
+                        Angle = Angle + 100
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
+                        task.wait()
+                    else
+                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+                    end
+                else
+                    break
+                end
+            until BasePart.Velocity.Magnitude > 500 or BasePart.Parent ~= TargetPlayer.Character or TargetPlayer.Parent ~= Players or not TargetPlayer.Character == TCharacter or THumanoid.Sit or Humanoid.Health <= 0 or tick() > Time + TimeToWait
+        end
+        
+        workspace.FallenPartsDestroyHeight = 0/0
+        
+        local BV = Instance.new("BodyVelocity")
+        BV.Name = "EpixVel"
+        BV.Parent = RootPart
+        BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
+        BV.MaxForce = Vector3.new(1/0, 1/0, 1/0)
+        
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        
+        if TRootPart and THead then
+            if (TRootPart.CFrame.p - THead.CFrame.p).Magnitude > 5 then
+                SFBasePart(THead)
+            else
+                SFBasePart(TRootPart)
+            end
+        elseif TRootPart and not THead then
+            SFBasePart(TRootPart)
+        elseif not TRootPart and THead then
+            SFBasePart(THead)
+        elseif not TRootPart and not THead and Accessory and Handle then
+            SFBasePart(Handle)
+        else
+            return Message("Error Occurred", "Target is missing everything", 5)
+        end
+        
+        BV:Destroy()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        workspace.CurrentCamera.CameraSubject = Humanoid
+        
+        repeat
+            RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+            Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+            Humanoid:ChangeState("GettingUp")
+            table.foreach(Character:GetChildren(), function(_, x)
+                if x:IsA("BasePart") then
+                    x.Velocity, x.RotVelocity = Vector3.new(), Vector3.new()
+                end
+            end)
+            task.wait()
+        until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
+        workspace.FallenPartsDestroyHeight = getgenv().FPDH
+    else
+        return Message("Error Occurred", "Random error", 5)
     end
 end
 
@@ -30,54 +148,68 @@ local function createGUI()
     TextBox.Size = UDim2.new(0, 200, 0, 50)
     TextBox.Position = UDim2.new(0.5, -100, 0.5, -25)
     TextBox.Text = ""
-    TextBox.PlaceholderText = "Enter Part of Username/DisplayName"
+    TextBox.PlaceholderText = "Player Name"  -- Updated placeholder text
     TextBox.BackgroundTransparency = 0.5
     TextBox.Parent = ScreenGui
 
-    -- Close Button
+    -- Close Button (back to original position above the input box)
     CloseButton = Instance.new("TextButton")
     CloseButton.Size = UDim2.new(0, 50, 0, 25)
-    CloseButton.Position = UDim2.new(0.5, 75, 0.5, -65) -- Position it above the TextBox
+    CloseButton.Position = UDim2.new(0.5, 75, 0.5, -65) -- Position above the input box
     CloseButton.Text = "Close"
     CloseButton.BackgroundTransparency = 0.3
     CloseButton.Parent = ScreenGui
 
-    -- Close Button functionality
-    CloseButton.MouseButton1Click:Connect(function()
-        ScreenGui.Enabled = false  -- Hide GUI when Close button is clicked
-    end)
+    -- Merged Teleport and Fling Buttons (below the input box)
+    local buttonSpacing = 10  -- Adjust space between buttons
 
-    task.wait() -- Small delay to prevent "U" key from typing in TextBox
-    TextBox:CaptureFocus() -- Automatically focus on TextBox
+    TeleportButton = Instance.new("TextButton")
+    TeleportButton.Size = UDim2.new(0, 100, 0, 30)
+    TeleportButton.Position = UDim2.new(0.49, -90, 0.5, 35) -- Move buttons to the left
+    TeleportButton.Text = "Teleport"
+    TeleportButton.BackgroundTransparency = 0.3
+    TeleportButton.Parent = ScreenGui
 
-    -- Detect Enter key for teleporting
-    TextBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            local targetName = TextBox.Text:lower()
-            for _, player in pairs(Players:GetPlayers()) do
-                if player.Name:lower():find(targetName) or player.DisplayName:lower():find(targetName) then
-                    teleportToPlayer(player)
-                    break
-                end
+    FlingButton = Instance.new("TextButton")
+    FlingButton.Size = UDim2.new(0, 100, 0, 30)
+    FlingButton.Position = UDim2.new(0.5, 10, 0.5, 35) -- Move the Fling button closer to the left as well
+    FlingButton.Text = "Fling"
+    FlingButton.BackgroundTransparency = 0.3
+    FlingButton.Parent = ScreenGui
+
+    -- Teleport Button functionality
+    TeleportButton.MouseButton1Click:Connect(function()
+        local targetName = TextBox.Text:lower()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Name:lower():find(targetName) or player.DisplayName:lower():find(targetName) then
+                teleportToPlayer(player)
+                break
             end
-            ScreenGui.Enabled = false  -- Disable GUI after teleport
         end
     end)
+
+    -- Fling Button functionality
+    FlingButton.MouseButton1Click:Connect(function()
+        local targetName = TextBox.Text
+        local targetPlayer = GetPlayer(targetName)
+
+        if targetPlayer then
+            SkidFling(targetPlayer) -- Execute the fling
+            ScreenGui.Enabled = false  -- Hide GUI after fling
+        else
+            print("Player not found for fling.")
+        end
+    end)
+
+    -- Close Button functionality
+    CloseButton.MouseButton1Click:Connect(function()
+        ScreenGui.Enabled = false
+    end)
 end
 
--- Function to disable GUI on respawn
-local function onCharacterAdded()
-    if ScreenGui then
-        ScreenGui.Enabled = false  -- Disable the GUI on respawn
-    end
-end
-
--- Connect character respawn to GUI disabling
-LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-
--- Keybind to show GUI
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.U then
+-- Toggle GUI with hotkey (U)
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.U then
         createGUI()
     end
 end)
