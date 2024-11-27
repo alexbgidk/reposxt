@@ -215,12 +215,24 @@ local function createGUI()
 end
 
 -- Toggle GUI with hotkey (U)
-UserInputService.InputBegan:Connect(function(input)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    -- Ignore if the input was already processed (like by the TextBox itself)
+    if gameProcessed then return end
+
     if input.KeyCode == Enum.KeyCode.U then
         if ScreenGui then
-            ScreenGui.Enabled = not ScreenGui.Enabled  -- Toggle visibility of GUI
+            -- If the GUI exists, toggle its visibility
+            ScreenGui.Enabled = not ScreenGui.Enabled  
         else
             createGUI()  -- Create the GUI if it doesn't exist
         end
+        
+        -- Focus the TextBox and automatically start typing
+        if TextBox then
+            TextBox:CaptureFocus()  -- Focus the TextBox
+            TextBox.Text = ""  -- Optional: Clears any existing text (you can set it to any default text)
+        end
+
+        input:Stop()  -- Prevent the "U" key from typing into the TextBox
     end
 end)
