@@ -1,0 +1,112 @@
+local UserInputService = game:GetService("UserInputService")
+local Camera = game.Workspace.CurrentCamera
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+
+local freeCameraEnabled = false
+local originalCameraType = Camera.CameraType
+local originalCameraCFrame = Camera.CFrame
+local originalWalkSpeed = player.Character and player.Character:WaitForChild("Humanoid").WalkSpeed or 16 -- Default walk speed
+local cameraSpeed = 1.5 -- Updated camera speed
+local rotationSpeed = 1.5 -- Speed of camera rotation
+
+-- Function to activate and deactivate free camera mode
+local function toggleFreeCamera()
+    freeCameraEnabled = not freeCameraEnabled
+    local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+    
+    if humanoid then
+        if freeCameraEnabled then
+            humanoid.WalkSpeed = 0 -- Set walk speed to 0 when free camera is active
+            Camera.CameraType = Enum.CameraType.Scriptable
+            Camera.CFrame = Camera.CFrame
+        else
+            humanoid.WalkSpeed = originalWalkSpeed -- Restore walk speed to original value
+            Camera.CameraType = originalCameraType
+            Camera.CFrame = originalCameraCFrame
+        end
+    end
+end
+
+-- Move camera based on WASD and arrow keys
+local function updateCameraMovement()
+    if freeCameraEnabled then
+        local direction = Vector3.zero
+        local delta = 1 / Camera.CFrame.lookVector.magnitude * cameraSpeed
+
+        -- WASD movement
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + Camera.CFrame.UpVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            direction = direction - Camera.CFrame.UpVector
+        end
+
+        Camera.CFrame = Camera.CFrame + direction * delta
+    end
+end
+
+-- Rotate camera with arrow keys (left/right for horizontal, up/down for vertical)
+local function updateCameraRotation()
+    if freeCameraEnabled then
+        local rotation = Vector3.zero
+
+        -- Left and Right Arrow Keys for horizontal rotation (fixed direction)
+        if UserInputService:IsKeyDown(Enum.KeyCode.Left) then
+            rotation = rotation + Vector3.new(0, rotationSpeed, 0)  -- Rotate to the left (counter-clockwise)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Right) then
+            rotation = rotation - Vector3.new(0, rotationSpeed, 0)  -- Rotate to the right (clockwise)
+        end
+
+        -- Up and Down Arrow Keys for vertical rotation
+        if UserInputService:IsKeyDown(Enum.KeyCode.Up) then
+            rotation = rotation + Vector3.new(rotationSpeed, 0, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Down) then
+            rotation = rotation - Vector3.new(rotationSpeed, 0, 0)
+        end
+
+        -- Apply the rotation to the camera's CFrame
+        Camera.CFrame = Camera.CFrame * CFrame.Angles(math.rad(rotation.X), math.rad(rotation.Y), 0)
+    end
+end
+
+-- Listen for the Backspace key press to toggle free camera
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Backspace then
+        toggleFreeCamera() -- Toggle the free camera mode on/off when Backspace is pressed
+    end
+end)
+
+-- Left mouse click to teleport (only when free camera is disabled)
+mouse.Button1Down:Connect(function()
+    if not freeCameraEnabled then
+        -- Your teleportation code goes here
+        print("Teleporting to mouse position")  -- Replace with your teleportation logic
+    else
+        -- Do nothing when the free camera is active (prevent teleportation)
+        print("Free camera mode is active, left-click ignored.")
+    end
+end)
+
+-- Continuously update the camera movement and rotation (only when free camera is enabled)
+game:GetService("RunService").RenderStepped:Connect(function()
+    if freeCameraEnabled then
+        updateCameraMovement()
+        updateCameraRotation()
+    end
+end)
